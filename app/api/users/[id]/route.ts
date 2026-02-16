@@ -12,7 +12,7 @@ function isValidObjectId(id: string) {
     return mongoose.Types.ObjectId.isValid(id);
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await connectMongo();
 
     const auth = await getAuthOrError(req);
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return errorJson(403, "Forbidden", ErrorCodes.RBAC_FORBIDDEN);
     }
 
-    const id = params.id;
+    const { id } = await params; // ✅ FIX
     if (!isValidObjectId(id)) {
         return errorJson(404, "User not found", ErrorCodes.USER_NOT_FOUND);
     }
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await connectMongo();
 
     const auth = await getAuthOrError(req);
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
         return errorJson(403, "Forbidden", ErrorCodes.RBAC_FORBIDDEN);
     }
 
-    const id = params.id;
+    const { id } = await params; // ✅ FIX
     if (!isValidObjectId(id)) {
         return errorJson(404, "User not found", ErrorCodes.USER_NOT_FOUND);
     }
