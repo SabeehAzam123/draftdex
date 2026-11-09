@@ -1,32 +1,26 @@
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
+import { getConfig } from "@/lib/config";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
+export type TokenClaims = { sub: string };
 
-export type JwtPayload = {
-    sub: string; // userId
-    role: "Admin" | "Staff";
-    email: string;
-};
+const secret = () => new TextEncoder().encode(getConfig().jwtSecret);
 
-export async function signToken(payload: JwtPayload) {
-    const exp = process.env.JWT_EXPIRES_IN || "30m";
-    return new SignJWT({ role: payload.role, email: payload.email })
+/**
+ * The token carries only the user's id. Role and email are read from the database on each request,
+ * so a role change or a deleted account takes effect at once.
+ */
+export async function signToken(userId: string): Promise<string> {
+    return new SignJWT({})
         .setProtectedHeader({ alg: "HS256" })
-        .setSubject(payload.sub)
+        .setSubject(userId)
         .setIssuedAt()
-        .setExpirationTime(exp)
-        .sign(secret);
+        .setExpirationTime(getConfig().jwtExpiresIn)
+        .sign(secret());
 }
 
-export async function verifyToken(token: string) {
-    const { payload } = await jwtVerify(token, secret);
-    const sub = payload.sub;
-    const role = payload.role;
-    const email = payload.email;
-
-    if (!sub || (role !== "Admin" && role !== "Staff") || typeof email !== "string") {
-        throw new Error("Invalid token payload");
-    }
-
-    return { sub: String(sub), role: role as "Admin" | "Staff", email };
+/** Returns the user id, or throws if the token is invalid or expired. */
+export async function verifyToken(token: string): Promise<string> {
+    const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    if (typeof payload.sub !== "string" || !payload.sub) throw new Error("token has no subject");
+    return payload.sub;
 }

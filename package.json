@@ -1,35 +1,45 @@
 {
-  "name": "mini-admin-panel",
-  "version": "0.1.0",
+  "name": "draftdex",
+  "version": "0.2.0",
   "private": true,
+  "description": "DraftDex: run a Pokémon draft league. Points-budget snake draft, weekly matches, trades and a credits ledger. Built as the app under test for draftdex-qa-framework.",
   "scripts": {
+    "predev": "tsx scripts/db-setup.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "dotenv -e .env.local -- tsx scripts/seed.ts"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:setup": "tsx scripts/db-setup.ts",
+    "db:reset": "tsx scripts/db-setup.ts --reset",
+    "pokemon:fetch": "tsx scripts/fetch-pokemon.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.4",
     "jose": "^6.1.3",
-    "mongoose": "^9.2.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv-cli": "^11.0.0",
+    "@vitest/coverage-v8": "^5.1.0",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   }
 }
