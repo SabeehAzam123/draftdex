@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# DraftDex: the local database (data/pokemon.json is committed)
+/data/*.db
+/data/*.db-*
+!.env.example
