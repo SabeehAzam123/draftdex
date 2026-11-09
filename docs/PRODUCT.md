@@ -1,6 +1,6 @@
 # DraftDex: the rules
 
-What DraftDex does, rule by rule: the spec the tests check. Each rule names the error code the API answers when it's broken. Written 2026-11-09 for version 0.2 (phase 1a: everything up to the end of the draft; matches, standings, trades and prize payouts come next).
+What DraftDex does, rule by rule: the spec the tests check. Each rule names the error code the API answers when it's broken. Written 2026-11-09 for version 0.3 (phases 1a and 1b: from sign-up through the draft, the season, trades and the prize payout).
 
 ## People and roles
 
@@ -79,13 +79,46 @@ The clock is settled whenever anyone reads or writes the draft, so a long gap se
 
 ### Rosters and Showdown
 
-Every team's roster is public to signed-in users. The Showdown export is one species per block, in Showdown's spelling (e.g. `Nidoran♀` → `Nidoran-F`).
+Every team's roster is public to signed-in users: what the team owns now, in draft order, with Pokémon received in trades marked `viaTrade`. The Showdown export is one species per block, in Showdown's spelling (e.g. `Nidoran♀` → `Nidoran-F`).
+
+### The season
+
+When the last draft slot is filled the league moves to **season** and its schedule is made: a **round robin** in draft order, where every team plays every other team once (n teams → n−1 weeks, or n weeks with one team resting when n is odd). Home and away are balanced: every team gets the same number of home games, or within one.
+
+### Results
+
+Matches are **best of three**: the winner has 2 games, the loser 0 or 1 (`422 MATCH_SCORE_INVALID` otherwise).
+
+- Either coach in the match **reports** the score, optionally with a Pokémon Showdown replay link (`https://replay.pokemonshowdown.com/<format>-<id>`; anything else is `422 MATCH_REPLAY_INVALID`). Only the two coaches in the match may report (`403 MATCH_NOT_PARTICIPANT`), and only once (`409 MATCH_INVALID_STATE`).
+- The **opponent** of whoever reported **confirms** it, or **disputes** it with a reason (5+ characters). The reporter can't confirm their own report (`409 MATCH_CANNOT_CONFIRM_OWN`).
+- The **commissioner** can **resolve** any match that isn't final (a dispute, an unanswered report, a match never played) with the final score. Confirmed and resolved results are final.
+- Everything needs the league in its season (`409 LEAGUE_INVALID_STATE`).
+
+### Standings
+
+From final results only: **wins**, then **game difference**, then, for exactly two teams level on both, their **head-to-head** result, then team name. During the season each row shows the prize that place would win if the season ended now; once completed, the prize actually paid.
+
+### Trades
+
+- During the season a coach offers another coach a swap: **the same number of Pokémon each way, 1 to 3**, each side giving only what it owns now (`422 TRADE_INVALID`). After the swap both teams must be within the budget (`422 TRADE_OVER_BUDGET`). Only coaches in the league can propose (`403`).
+- The receiving coach **accepts** or **declines**; the proposer can **cancel** until it's decided. The **commissioner approves** or **rejects** an accepted trade (`403` for anyone else, `409 TRADE_INVALID_STATE` out of order).
+- **Approving re-checks everything.** If either side no longer owns what it offered (because another trade went through first), the trade is stale (`409 TRADE_STALE`) and can only be rejected.
+- An approved trade changes **who owns** the Pokémon. The draft record keeps who drafted them.
+
+### Completing the season
+
+The commissioner **completes** the season once every match is final (`409 SEASON_MATCHES_OPEN` with the count). The standings become final and the prize pool is paid out by the league's prize split, through the ledger:
+
+- each place's share is rounded down; the credits left over by rounding, and the shares of places no team can take (a 3rd-place share in a 2-team league), go to 1st;
+- so the whole pool is paid out, the league's account ends at 0, and the ledger still sums to 0.
+
+Example: 2 coaches × 100 credits, split 60 / 30 / 10 → 1st gets 140, 2nd gets 60.
 
 ## Discord notifications
 
 - The commissioner sets a webhook URL. Only hosts in `WEBHOOK_ALLOWED_HOSTS` (default `discord.com`, `discordapp.com` and their subdomains) are accepted, over https. IP addresses and URLs with credentials are refused (`422 WEBHOOK_URL_NOT_ALLOWED`).
 - The URL holds a secret token, so the API only ever shows it masked (`https://discord.com/api/webhooks/****`), and only to the commissioner.
-- Events: coach approved, draft started, pick made, pick skipped, auto-pick, draft complete. They're sent after the response with a 3-second timeout, and only for changes that were saved. Each delivery is logged (sent / failed, HTTP status, a reason that never contains the URL).
+- Events: coach approved, draft started, pick made, pick skipped, auto-pick, draft complete, result reported / confirmed / disputed / resolved, trade approved, season complete (with the champion and the prizes). They're sent after the response with a 3-second timeout, and only for changes that were saved. Each delivery is logged (sent / failed, HTTP status, a reason that never contains the URL).
 - **Send test** posts a test message straight away and reports the outcome (`409 WEBHOOK_NOT_CONFIGURED` without a URL).
 
 ## Errors

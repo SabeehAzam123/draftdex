@@ -125,3 +125,28 @@ export const PickSchema = z.object({ pokemonId: z.number().int().positive() }).s
 export const WebhookSchema = z.object({ url: z.string().trim().max(500).nullable() }).strict();
 
 export const EmptySchema = z.object({}).strict();
+
+const games = z.number().int("Whole games only");
+
+export const ReportResultSchema = z
+    .object({
+        homeWins: games,
+        awayWins: games,
+        replayUrl: z.string().trim().max(300).nullable().optional(),
+    })
+    .strict();
+
+export const DisputeSchema = z.object({ reason: z.string().trim().min(5, "Say what's wrong (at least 5 characters)").max(300) }).strict();
+
+export const ResolveSchema = z.object({ homeWins: games, awayWins: games }).strict();
+
+const tradeSide = z.array(z.number().int().positive()).min(1, "Pick at least one Pokémon").max(3, "At most 3 Pokémon each way");
+
+export const ProposeTradeSchema = z
+    .object({
+        toEntryId: z.string().min(1),
+        give: tradeSide,
+        get: tradeSide,
+        note: z.string().trim().max(200).optional(),
+    })
+    .strict();

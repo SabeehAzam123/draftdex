@@ -8,6 +8,13 @@
       "when": 1794193254206,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794199883946,
+      "tag": "0001_season_and_trades",
+      "breakpoints": true
     }
   ]
 }

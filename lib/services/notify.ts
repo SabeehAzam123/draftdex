@@ -18,6 +18,12 @@ const COLORS: Record<EventType, number> = {
     "pick.skipped": 0xf59e0b,
     "pick.auto": 0xf59e0b,
     "draft.completed": 0xec4899,
+    "result.reported": 0x0ea5e9,
+    "result.confirmed": 0x10b981,
+    "result.disputed": 0xef4444,
+    "result.resolved": 0x8b5cf6,
+    "trade.approved": 0x14b8a6,
+    "season.completed": 0xeab308,
     test: 0x64748b,
 };
 

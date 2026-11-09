@@ -5,7 +5,21 @@ import { forbidden, unauthorized } from "@/lib/errors/app-error";
 
 export type Actor = { id: string; email: string; displayName: string; role: UserRole };
 
-export const EVENT_TYPES = ["entry.approved", "draft.started", "pick.made", "pick.skipped", "pick.auto", "draft.completed", "test"] as const;
+export const EVENT_TYPES = [
+    "entry.approved",
+    "draft.started",
+    "pick.made",
+    "pick.skipped",
+    "pick.auto",
+    "draft.completed",
+    "result.reported",
+    "result.confirmed",
+    "result.disputed",
+    "result.resolved",
+    "trade.approved",
+    "season.completed",
+    "test",
+] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 /** Something that happened in a league that its Discord channel should hear about. */
@@ -46,6 +60,6 @@ export async function withTx<T>(ctx: Ctx, fn: (tx: Tx, events: DomainEvent[]) =>
 }
 
 /** Readable ids with a type prefix, e.g. lg_3f2a9c1e0b7d4a55. */
-export function newId(prefix: "us" | "lg" | "en" | "pk" | "tx"): string {
+export function newId(prefix: "us" | "lg" | "en" | "pk" | "tx" | "mt" | "tr"): string {
     return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
 }

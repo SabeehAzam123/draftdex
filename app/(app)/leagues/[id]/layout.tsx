@@ -21,10 +21,18 @@ export default function LeagueLayout({ children }: { children: ReactNode }) {
     if (!league) return null;
 
     const base = `/leagues/${league.id}`;
+    const inSeason = league.status === "season" || league.status === "completed";
     const tabs = [
         { href: base, label: "Overview", testId: "league-tab-overview" },
         { href: `${base}/pool`, label: "Tier list", testId: "league-tab-pool" },
         { href: `${base}/draft`, label: "Draft", testId: "league-tab-draft" },
+        ...(inSeason
+            ? [
+                  { href: `${base}/schedule`, label: "Schedule", testId: "league-tab-schedule" },
+                  { href: `${base}/standings`, label: "Standings", testId: "league-tab-standings" },
+                  { href: `${base}/trades`, label: "Trades", testId: "league-tab-trades" },
+              ]
+            : []),
         ...(league.me.canManage ? [{ href: `${base}/settings`, label: "Settings", testId: "league-tab-settings" }] : []),
     ];
 

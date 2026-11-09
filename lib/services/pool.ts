@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNotNull, isNull, lte, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
 import { entries, leaguePool, picks, pokemon } from "@/lib/db/schema";
 import { parsePoolCsv } from "@/lib/domain/pool-csv";
@@ -34,13 +34,15 @@ export async function listPool(ctx: Ctx, leagueId: string, q: z.infer<typeof Poo
     if (q.maxPoints !== undefined) filters.push(lte(leaguePool.points, q.maxPoints));
     const where = and(...filters);
 
+    // "Taken by" is the current owner: a trade moves it from the team that drafted it
+    const owner = sql<string>`coalesce(${picks.ownerEntryId}, ${picks.entryId})`;
     const base = () =>
         ctx.db
-            .select({ p: pokemon, points: leaguePool.points, banned: leaguePool.banned, entryId: picks.entryId, teamName: entries.teamName })
+            .select({ p: pokemon, points: leaguePool.points, banned: leaguePool.banned, entryId: owner, teamName: entries.teamName })
             .from(leaguePool)
             .innerJoin(pokemon, eq(pokemon.id, leaguePool.pokemonId))
             .leftJoin(picks, and(eq(picks.leagueId, leaguePool.leagueId), eq(picks.pokemonId, leaguePool.pokemonId)))
-            .leftJoin(entries, eq(entries.id, picks.entryId));
+            .leftJoin(entries, eq(entries.id, owner));
 
     const [{ total } = { total: 0 }] = await ctx.db
         .select({ total: count() })

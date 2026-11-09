@@ -176,7 +176,7 @@ describe("admin endpoints", () => {
 
         const res = await call(reset.POST, { method: "POST", token });
         expect(res.status).toBe(200);
-        expect(res.json.data.leagues).toHaveLength(4);
+        expect(res.json.data.leagues).toHaveLength(5);
         // the admin who reset was deleted with everything else, so their token no longer works
         expect((await call(users.GET, { token })).json.code).toBe("AUTH_INVALID_TOKEN");
     });

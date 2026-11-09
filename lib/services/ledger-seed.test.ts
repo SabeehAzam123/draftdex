@@ -45,8 +45,13 @@ describe("seedDemo", () => {
             "Sunday Singles S1": "registration",
             "Office League S3": "drafting",
             "Friends Doubles S2": "season",
+            "Pilot League S0": "completed",
         });
         await expectLedgerBalanced(db);
+
+        // Pilot League: 4 x 50 paid out in full, nothing left in its pool
+        const pilot = (await db.select().from(leagues).where(eq(leagues.name, "Pilot League S0")).get())!;
+        expect(await balanceOf(db, leagueAccount(pilot.id))).toBe(0);
 
         const admin = await db.select().from(users).where(eq(users.email, DEMO_ADMIN.email)).get();
         expect(admin?.role).toBe("admin");

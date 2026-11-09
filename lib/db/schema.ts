@@ -4,9 +4,11 @@ import {
     LEAGUE_FORMATS,
     LEAGUE_STATUSES,
     LEDGER_KINDS,
+    MATCH_STATUSES,
     NOTIFICATION_STATUSES,
     SLOT_KINDS,
     SLOT_STATUSES,
+    TRADE_STATUSES,
     UI_VARIANTS,
     USER_ROLES,
     type LeagueSettings,
@@ -132,6 +134,11 @@ export const picks = sqliteTable(
         /** The user who made the pick, or "timer" for an auto-pick. */
         pickedBy: text("picked_by").notNull(),
         createdAt: text("created_at").notNull(),
+        /**
+         * The entry that owns the Pokémon now, when an approved trade moved it; null = still the drafter
+         * (`entryId`). Keeping `entryId` untouched keeps the draft's history true.
+         */
+        ownerEntryId: text("owner_entry_id").references(() => entries.id),
     },
     (t) => [
         // A Pokémon can be drafted once per league; this also settles two coaches picking it at the same moment.
@@ -162,6 +169,62 @@ export const ledger = sqliteTable(
 );
 
 /** One row per webhook delivery attempt (shown to the commissioner). */
+/** The season's round robin: every team plays every other team once. Best of three. */
+export const matches = sqliteTable(
+    "matches",
+    {
+        id: text("id").primaryKey(),
+        leagueId: text("league_id")
+            .notNull()
+            .references(() => leagues.id, { onDelete: "cascade" }),
+        week: integer("week").notNull(),
+        homeEntryId: text("home_entry_id")
+            .notNull()
+            .references(() => entries.id),
+        awayEntryId: text("away_entry_id")
+            .notNull()
+            .references(() => entries.id),
+        status: text("status", { enum: MATCH_STATUSES }).notNull().default("scheduled"),
+        homeWins: integer("home_wins"),
+        awayWins: integer("away_wins"),
+        /** A Pokémon Showdown replay of the match (optional) */
+        replayUrl: text("replay_url"),
+        reportedByEntryId: text("reported_by_entry_id").references(() => entries.id),
+        reportedAt: text("reported_at"),
+        disputeReason: text("dispute_reason"),
+        /** When it became final (confirmed or resolved) */
+        decidedAt: text("decided_at"),
+        resolvedBy: text("resolved_by").references(() => users.id),
+    },
+    (t) => [index("matches_league_idx").on(t.leagueId, t.week)],
+);
+
+/** An n-for-n swap of Pokémon between two coaches in the same league. */
+export const trades = sqliteTable(
+    "trades",
+    {
+        id: text("id").primaryKey(),
+        leagueId: text("league_id")
+            .notNull()
+            .references(() => leagues.id, { onDelete: "cascade" }),
+        fromEntryId: text("from_entry_id")
+            .notNull()
+            .references(() => entries.id),
+        toEntryId: text("to_entry_id")
+            .notNull()
+            .references(() => entries.id),
+        /** Pokémon ids the proposer gives */
+        give: text("give", { mode: "json" }).$type<number[]>().notNull(),
+        /** Pokémon ids the proposer gets */
+        get: text("get", { mode: "json" }).$type<number[]>().notNull(),
+        note: text("note"),
+        status: text("status", { enum: TRADE_STATUSES }).notNull().default("proposed"),
+        createdAt: text("created_at").notNull(),
+        updatedAt: text("updated_at").notNull(),
+    },
+    (t) => [index("trades_league_idx").on(t.leagueId)],
+);
+
 export const notifications = sqliteTable(
     "notifications",
     {

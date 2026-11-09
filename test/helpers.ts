@@ -1,11 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { expect } from "vitest";
 import { getDb, type Db } from "@/lib/db/client";
 import { runMigrations } from "@/lib/db/migrate";
-import { users, type LeagueSettings } from "@/lib/db/schema";
+import { leaguePool, users, type LeagueSettings } from "@/lib/db/schema";
 import { makeCtx, type Actor, type Ctx } from "@/lib/services/context";
-import { startDraft } from "@/lib/services/draft";
+import { makePick, startDraft } from "@/lib/services/draft";
 import { applyToLeague, approveEntry } from "@/lib/services/entries";
 import { createLeague, openRegistration, type LeagueDto } from "@/lib/services/leagues";
 import { ledgerTotal } from "@/lib/services/ledger";
@@ -66,4 +66,25 @@ export async function leagueWithCoaches(
     }
     if (opts.draft) await startDraft(cctx, league.id, { order: coaches.map((c) => c.entryId) });
     return { commissioner, league, coaches };
+}
+
+/**
+ * A league in its season: `coaches` coaches, 3-Pokémon rosters, drafted by the commissioner with
+ * 1-point Pokémon in dex order (so budgets never get in the way). The schedule exists.
+ */
+export async function seasonLeague(db: Db, opts: { coaches: number; entryFee?: number; prizeSplit?: number[] }) {
+    const setup = await leagueWithCoaches(db, {
+        coaches: opts.coaches,
+        settings: { rosterSize: 3, entryFee: opts.entryFee ?? 100, ...(opts.prizeSplit ? { prizeSplit: opts.prizeSplit } : {}) },
+        draft: true,
+    });
+    const cheap = await db
+        .select({ id: leaguePool.pokemonId })
+        .from(leaguePool)
+        .where(and(eq(leaguePool.leagueId, setup.league.id), eq(leaguePool.points, 1), eq(leaguePool.banned, false)))
+        .orderBy(asc(leaguePool.pokemonId))
+        .limit(opts.coaches * 3);
+    const cctx = ctxOf(db, setup.commissioner);
+    for (const { id } of cheap) await makePick(cctx, setup.league.id, { pokemonId: id });
+    return { ...setup, drafted: cheap.map((c) => c.id) };
 }

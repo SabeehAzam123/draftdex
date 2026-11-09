@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { draftSlots, picks, pokemon, users, type EntryStatus, type LeagueStatus } from "@/lib/db/schema";
 import { toShowdownText } from "@/lib/domain/showdown";
 import { requireActor, type Ctx } from "./context";
@@ -12,7 +12,8 @@ export type TeamDto = {
     status: EntryStatus;
     coach: { id: string; displayName: string };
     league: { id: string; name: string; status: LeagueStatus; budget: number; rosterSize: number };
-    roster: { pokemon: PokemonDto; points: number; slotNo: number; round: number; autoPicked: boolean }[];
+    /** What the team owns now, in draft order. `viaTrade`: drafted by another team and traded here. */
+    roster: { pokemon: PokemonDto; points: number; slotNo: number; round: number; autoPicked: boolean; viaTrade: boolean }[];
     spent: number;
     budgetLeft: number;
 };
@@ -27,7 +28,8 @@ export async function getTeam(ctx: Ctx, leagueId: string, entryId: string): Prom
         .from(picks)
         .innerJoin(pokemon, eq(pokemon.id, picks.pokemonId))
         .innerJoin(draftSlots, and(eq(draftSlots.leagueId, picks.leagueId), eq(draftSlots.slotNo, picks.slotNo)))
-        .where(and(eq(picks.leagueId, leagueId), eq(picks.entryId, entryId)))
+        // Owned now: traded here, or drafted here and not traded away
+        .where(and(eq(picks.leagueId, leagueId), sql`coalesce(${picks.ownerEntryId}, ${picks.entryId}) = ${entryId}`))
         .orderBy(asc(picks.slotNo));
     const spent = rows.reduce((s, r) => s + r.pick.points, 0);
     return {
@@ -42,6 +44,7 @@ export async function getTeam(ctx: Ctx, leagueId: string, entryId: string): Prom
             slotNo: r.pick.slotNo,
             round: r.round,
             autoPicked: r.pick.pickedBy === "timer",
+            viaTrade: r.pick.entryId !== entryId,
         })),
         spent,
         budgetLeft: league.settings.budget - spent,

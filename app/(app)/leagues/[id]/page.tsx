@@ -93,8 +93,13 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
     const [order, setOrder] = useState<"random" | "listed">("random");
     const [teamName, setTeamName] = useState("");
     const [applyErrors, setApplyErrors] = useState<Record<string, string>>({});
+    const [completeOpen, setCompleteOpen] = useState(false);
     const mine = league.me.entry;
     const approved = entries.filter((e) => e.status === "approved");
+    const schedule = useLoad(
+        () => get<{ openMatches: number }>(`/leagues/${league.id}/schedule`),
+        league.status === "season" && league.me.canManage ? `${league.id}-${league.status}` : null,
+    );
 
     async function act(key: string, fn: () => Promise<unknown>, success: string) {
         setBusy(key);
@@ -223,6 +228,44 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
             </div>,
         );
     }
+    if (league.status === "season") {
+        const open = schedule.data?.openMatches;
+        items.push(
+            <div key="season" className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <p className="text-sm text-slate-600" data-testid="league-season-status">
+                    {league.me.canManage
+                        ? open === undefined
+                            ? "Loading the schedule…"
+                            : open > 0
+                              ? `${open} match(es) still need a final result before the season can end.`
+                              : "Every match is decided. Complete the season to pay out the prize pool."
+                        : "Report your results on the Schedule tab; your opponent confirms them."}
+                </p>
+                <div className="flex gap-2">
+                    <LinkButton variant="secondary" href={`/leagues/${league.id}/schedule`} testId="league-go-schedule">
+                        Schedule
+                    </LinkButton>
+                    {league.me.canManage && (
+                        <Button testId="league-complete" disabled={open !== 0} onClick={() => setCompleteOpen(true)}>
+                            Complete season
+                        </Button>
+                    )}
+                </div>
+            </div>,
+        );
+    }
+    if (league.status === "completed") {
+        items.push(
+            <div key="completed" className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-600" data-testid="league-completed">
+                    The season is over and the prize pool has been paid out.
+                </p>
+                <LinkButton href={`/leagues/${league.id}/standings`} testId="league-go-standings">
+                    Final standings
+                </LinkButton>
+            </div>,
+        );
+    }
     // The destructive action goes last
     if (league.me.canManage && (league.status === "setup" || league.status === "registration")) {
         items.push(
@@ -269,6 +312,34 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
             >
                 <p className="text-sm text-slate-600">
                     {league.counts.approved + league.counts.pending} coach(es) will get their entry fee back. This can&apos;t be undone.
+                </p>
+            </Modal>
+
+            <Modal
+                open={completeOpen}
+                title="Complete the season?"
+                onClose={() => setCompleteOpen(false)}
+                testId="complete-season-modal"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setCompleteOpen(false)}>
+                            Not yet
+                        </Button>
+                        <Button
+                            testId="complete-season-confirm"
+                            loading={busy === "complete"}
+                            onClick={async () => {
+                                await act("complete", () => post(`/leagues/${league.id}/complete`), "Season complete: prizes paid out");
+                                setCompleteOpen(false);
+                            }}
+                        >
+                            Complete and pay out
+                        </Button>
+                    </>
+                }
+            >
+                <p className="text-sm text-slate-600">
+                    The standings become final and the {credits(league.prizePool)} prize pool is paid out by the split ({league.settings.prizeSplit.map((p) => `${p}%`).join(" / ")}). This can&apos;t be undone.
                 </p>
             </Modal>
 

@@ -9,6 +9,7 @@ import type { PickSchema, StartDraftSchema } from "@/lib/validators/schemas";
 import { newId, nowIso, requireActor, withTx, type Ctx, type DomainEvent } from "./context";
 import { canManage, getLeagueRow, requireManager, requireStatus, type LeagueRow } from "./leagues";
 import { toPokemonDto, type PokemonDto } from "./pokemon";
+import { createSchedule } from "./season";
 
 type SlotRow = typeof draftSlots.$inferSelect;
 
@@ -169,9 +170,16 @@ export async function startDraft(ctx: Ctx, leagueId: string, input: z.infer<type
 
 // ---- The clock ----
 
+/** The last slot is done: the season starts, with its round-robin schedule. */
 async function finishDraft(db: DbOrTx, league: LeagueRow, events: DomainEvent[]) {
     await db.update(leagues).set({ status: "season" }).where(eq(leagues.id, league.id));
-    events.push({ leagueId: league.id, type: "draft.completed", title: "The draft is complete", text: `${league.name}: every roster is full. The season can begin.` });
+    const fixtures = await createSchedule(db, league);
+    events.push({
+        leagueId: league.id,
+        type: "draft.completed",
+        title: "The draft is complete",
+        text: `${league.name}: every roster is full. The season starts: ${fixtures} match(es) are scheduled.`,
+    });
 }
 
 /**

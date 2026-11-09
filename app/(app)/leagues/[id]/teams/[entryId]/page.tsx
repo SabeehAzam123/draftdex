@@ -81,6 +81,11 @@ export default function TeamPage() {
                                     <TypeBadges types={r.pokemon.types} />
                                     <PointsBadge points={r.points} />
                                     {r.autoPicked && <Badge tone="amber">auto-pick</Badge>}
+                                    {r.viaTrade && (
+                                        <Badge tone="blue" testId="roster-via-trade">
+                                            via trade
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </li>
