@@ -36,7 +36,7 @@ export default function LeagueOverviewPage() {
         <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
                 <Progress status={league.status} />
-                <Actions entries={entries.data ?? []} onChange={reloadAll} />
+                <Actions entries={entries.data} onChange={reloadAll} />
                 <Card testId="entries-card">
                     <CardHeader title="Coaches" subtitle={`${league.counts.approved} approved · ${league.counts.pending} waiting`} />
                     {entries.loading && !entries.data ? (
@@ -83,7 +83,8 @@ function Progress({ status }: { status: LeagueStatus }) {
     );
 }
 
-function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => Promise<void> }) {
+/** `entries` is null until the list has loaded. */
+function Actions({ entries, onChange }: { entries: EntryDto[] | null; onChange: () => Promise<void> }) {
     const { league } = useLeague();
     const { balance, refreshBalance } = useSession();
     const toast = useToast();
@@ -95,7 +96,10 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
     const [applyErrors, setApplyErrors] = useState<Record<string, string>>({});
     const [completeOpen, setCompleteOpen] = useState(false);
     const mine = league.me.entry;
-    const approved = entries.filter((e) => e.status === "approved");
+    const approved = (entries ?? []).filter((e) => e.status === "approved");
+    // The league (with its counts) and the entries load separately. Until the entries agree with the
+    // counts, an "as listed" draft order would be missing coaches, so starting waits for them.
+    const entriesReady = entries !== null && approved.length === league.counts.approved;
     const schedule = useLoad(
         () => get<{ openMatches: number }>(`/leagues/${league.id}/schedule`),
         league.status === "season" && league.me.canManage ? `${league.id}-${league.status}` : null,
@@ -152,7 +156,7 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
                         ? `Review the ${league.counts.pending} waiting application(s) before the draft.`
                         : `${league.counts.approved} coaches are in. Start the draft when everyone is ready.`}
                 </p>
-                <Button testId="league-start-draft" disabled={league.counts.approved < 2} onClick={() => setStartOpen(true)}>
+                <Button testId="league-start-draft" disabled={league.counts.approved < 2 || !entriesReady} onClick={() => setStartOpen(true)}>
                     Start draft
                 </Button>
             </div>,
@@ -356,6 +360,7 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
                         <Button
                             testId="start-draft-confirm"
                             loading={busy === "start"}
+                            disabled={order === "listed" && (!entriesReady || approved.length < 2)}
                             onClick={async () => {
                                 await act(
                                     "start",
@@ -382,7 +387,7 @@ function Actions({ entries, onChange }: { entries: EntryDto[]; onChange: () => P
                     </label>
                     <label className="flex items-center gap-2">
                         <input type="radio" name="order" data-testid="start-draft-order-listed" checked={order === "listed"} onChange={() => setOrder("listed")} />
-                        As listed: {approved.map((e) => e.teamName).join(" → ")}
+                        As listed: {entriesReady ? approved.map((e) => e.teamName).join(" → ") : "loading the coaches…"}
                     </label>
                 </fieldset>
             </Modal>
